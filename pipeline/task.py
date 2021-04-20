@@ -4,11 +4,31 @@ from functools import cached_property
 from inspect import Parameter, Signature, signature
 from typing import Any, Mapping, TypeVar, get_type_hints
 
-from dask import delayed
+import dask
 from dask.base import tokenize
+from dask.optimization import cull
+from dask.utils import ensure_dict
 from typing_extensions import Annotated
 
 from .targets.core import Target
+
+
+def _optimize(dsk, keys):
+    dsk = ensure_dict(dsk)
+    dsk, _ = cull(dsk, keys)
+
+    # TODO: Copy cull implementation here.
+    new_dsk = {}
+    for k, v in dsk.items():
+        if isinstance(v[0], Task):
+            new_dsk[k] = (v[0].run, *v[1:])
+        else:
+            new_dsk[k] = v
+
+    return new_dsk
+
+
+dask.config.set(delayed_optimize=_optimize)
 
 
 class MetaDependency(type):
@@ -121,9 +141,9 @@ class Task(metaclass=MetaTask):
             setattr(self, name, value)
 
         if _delayed:
-            func = delayed(self.run, name=cls.__qualname__)
-            return func(*self._run_args, dask_key_name=self.key)
+            return dask.delayed(self)(*self._run_args, dask_key_name=self.key)
         else:
+            # Return instance. Needed for Task serialization.
             return self
 
     def __getnewargs_ex__(self):
@@ -133,3 +153,7 @@ class Task(metaclass=MetaTask):
     def _run_args(self):
         parameters = signature(self.run).parameters
         return tuple(getattr(self, k) for k in parameters)
+
+    def __call__(self, *args, **kwargs):
+        # Needed for dask to consider instances as (dask) tasks.
+        raise NotImplementedError
