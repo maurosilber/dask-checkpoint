@@ -1,6 +1,5 @@
 import numpy as np
 from pipeline import Load, Save, Task, dependency
-from pipeline.targets.core import DictTarget
 
 
 class Image(Task):
@@ -21,10 +20,6 @@ class Background(Task):
     def run(image) -> float:
         print("Calculating background.")
         return np.min(image)
-
-    @property
-    def target(self):
-        return DictTarget(self.key)
 
 
 class CorrectedImage(Task):

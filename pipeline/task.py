@@ -10,8 +10,6 @@ from dask.optimization import cull
 from dask.utils import ensure_dict
 from typing_extensions import Annotated
 
-from .targets.core import Target
-
 
 def _optimize(dsk, keys):
     dsk = ensure_dict(dsk)
@@ -110,21 +108,6 @@ class Task(metaclass=MetaTask):
         declared as class attributes or dependency methods.
         """
         raise NotImplementedError
-
-    @property
-    def target(self) -> Target:
-        raise NotImplementedError
-
-    def save(self, result):
-        """Transform result before passing to target.save."""
-        self.target.save(result)
-
-    def load(self):
-        """Transform result from target.load.
-
-        Must be the inverse transformation of Task.save.
-        """
-        return self.target.load()
 
     @cached_property
     def key(self) -> str:
