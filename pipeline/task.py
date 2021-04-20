@@ -83,17 +83,18 @@ def build_task_signature(instance):
         except AttributeError:
             default = getattr(instance, name, Parameter.empty)
         parameters[name] = Parameter(name, kind, default=default, annotation=annotation)
-    return Signature(tuple(parameters.values())[1:])  # exclude self
+    return Signature(parameters.values())
 
 
 class Task(metaclass=MetaTask):
-    def run(self):
+    @staticmethod
+    def run():
         """Compute the result.
 
         Run signature must have positional parameters, which are
         declared as class attributes or dependency methods.
         """
-        pass
+        raise NotImplementedError
 
     @property
     def target(self) -> Target:

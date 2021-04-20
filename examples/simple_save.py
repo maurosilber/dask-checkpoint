@@ -8,7 +8,8 @@ class Image(Task):
 
     path: str
 
-    def run(self, path) -> np.ndarray:
+    @staticmethod
+    def run(path) -> np.ndarray:
         print("Loading image.")
         return np.array([1, 1, 2, 3, 5])  # We didn't really load anything
 
@@ -16,7 +17,8 @@ class Image(Task):
 class Background(Task):
     image: np.ndarray
 
-    def run(self, image) -> float:
+    @staticmethod
+    def run(image) -> float:
         print("Calculating background.")
         return np.min(image)
 
@@ -28,7 +30,8 @@ class Background(Task):
 class CorrectedImage(Task):
     image: np.ndarray
 
-    def run(self, image, background) -> np.ndarray:
+    @staticmethod
+    def run(image, background) -> np.ndarray:
         print("Correcting image.")
         return image - background
 
