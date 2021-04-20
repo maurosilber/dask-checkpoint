@@ -55,11 +55,11 @@ class MetaTask(type):
 
 
 def check_run_signature(method):
-    """Run signature must have positional parameters."""
+    """Run signature must not have keyword-only parameters."""
     parameters = signature(method).parameters
-    kinds = (Parameter.POSITIONAL_ONLY, Parameter.POSITIONAL_OR_KEYWORD)
-    if any(p.kind not in kinds for p in parameters.values()):
-        raise Exception("run parameters must be positional.")
+    kinds = (Parameter.KEYWORD_ONLY, Parameter.VAR_KEYWORD)
+    if any(p.kind in kinds for p in parameters.values()):
+        raise Exception("run parameters must be positional, not be keyword-only.")
 
 
 def build_task_signature(instance):
