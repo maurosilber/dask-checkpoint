@@ -48,11 +48,6 @@ class MetaTask(type):
         check_run_signature(cls.run)
         cls.__signature__ = build_task_signature(cls)
 
-        for method in ("target", "key"):
-            method = getattr(cls, method)
-            if not isinstance(method, property):
-                raise Exception(f"Method {method.__qualname__} must be a property.")
-
 
 def check_run_signature(method):
     """Run signature must not have keyword-only parameters."""
@@ -111,7 +106,7 @@ class Task(metaclass=MetaTask):
         """
         return self.target.load()
 
-    @property
+    @cached_property
     def key(self) -> str:
         name = self.__class__.__qualname__
         return f"{name}-{tokenize(*self._run_args)}"
