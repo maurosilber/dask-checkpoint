@@ -114,7 +114,7 @@ class Task(metaclass=MetaTask):
     @property
     def key(self) -> str:
         name = self.__class__.__qualname__
-        return f"{name}-{tokenize(*self.run_parameters)}"
+        return f"{name}-{tokenize(*self._run_args)}"
 
     def __new__(cls, ret_delayed=True, **kwargs):
         # Create instance and save kwargs for later reconstruction.
@@ -128,7 +128,7 @@ class Task(metaclass=MetaTask):
 
         if ret_delayed:
             func = delayed(self.run, name=cls.__qualname__)
-            return func(*self.run_parameters, dask_key_name=self.key)
+            return func(*self._run_args, dask_key_name=self.key)
         else:
             return self
 
@@ -136,6 +136,6 @@ class Task(metaclass=MetaTask):
         return (), {**self.kwargs, "ret_delayed": False}
 
     @cached_property
-    def run_parameters(self):
+    def _run_args(self):
         parameters = signature(self.run).parameters
         return tuple(getattr(self, k) for k in parameters)
