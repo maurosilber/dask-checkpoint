@@ -66,6 +66,10 @@ class MetaTask(type):
         check_run_signature(cls.run)
         cls.__signature__ = build_task_signature(cls)
 
+    @property
+    def _dependencies(cls):
+        return (d for d in dir(cls) if isinstance(getattr(cls, d), dependency))
+
 
 def check_run_signature(method):
     """Run signature must not have keyword-only parameters."""
@@ -76,26 +80,20 @@ def check_run_signature(method):
 
 
 def build_task_signature(instance):
-    """Build task signature from type hints.
+    """Build task signature.
 
-    Parameter order:
-        - run parameters
-        - class attributes
-        - dependencies
+    Run method -> positional parameters
+    Class attributes and dependencies -> keyword-only parameters
     """
-    parameters, kind = {}, Parameter.KEYWORD_ONLY
-    for name, p in signature(instance.run).parameters.items():
-        parameters[name] = Parameter(
-            name, kind, default=p.default, annotation=p.annotation
-        )
+    parameters = {}
 
-    for name, annotation in get_type_hints(instance).items():
-        try:
-            if dependency in annotation.__metadata__:
-                default = Parameter.empty
-        except AttributeError:
-            default = getattr(instance, name, Parameter.empty)
-        parameters[name] = Parameter(name, kind, default=default, annotation=annotation)
+    for name, param in signature(instance.run).parameters.items():
+        parameters[name] = param
+
+    for name in instance._dependencies:
+        if name not in parameters:
+            parameters[name] = Parameter(name, Parameter.KEYWORD_ONLY)
+
     return Signature(parameters.values())
 
 
