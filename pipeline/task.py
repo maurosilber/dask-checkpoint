@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from functools import cached_property
 from inspect import Parameter, Signature, signature
+from types import FunctionType
 from typing import TypeVar
 
 import dask
@@ -37,14 +38,20 @@ class MetaDependency(type):
 class dependency(metaclass=MetaDependency):
     """Dependency descriptor."""
 
-    def __init__(self, fget=None):
-        self.fget = fget
-        self.__doc__ = fget.__doc__
+    def __init__(self, dep=None):
+        self.dep = dep
+        self.is_func = isinstance(dep, FunctionType)
+        if self.is_func:
+            self.__doc__ = dep.__doc__
 
     def __get__(self, task, objtype=None):
         if task is None:
-            return self.fget
-        return self.fget(task)
+            return self
+
+        if self.is_func:
+            return self.dep(task)
+        else:
+            return self.dep
 
     def __class_getitem__(cls, item):
         return DependencyType[item]
