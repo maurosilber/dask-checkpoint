@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from functools import cached_property
 from inspect import Parameter, Signature, signature
-from typing import Any, Mapping, TypeVar, get_type_hints
+from typing import TypeVar
 
 import dask
 from dask.base import tokenize
@@ -49,19 +49,11 @@ class dependency(metaclass=MetaDependency):
     def __class_getitem__(cls, item):
         return DependencyType[item]
 
-    def __set_name__(self, owner, name):
-        """Set the return type in owner's annotations."""
-        ret_type = get_type_hints(self.fget).get("return", Any)
-        owner.__annotations__[name] = dependency[ret_type]
-
 
 DependencyType = Annotated[TypeVar("T"), dependency]  # noqa: F821
 
 
 class MetaTask(type):
-    def __prepare__(name, bases, **kwargs) -> Mapping[str, Any]:
-        return {"__annotations__": {}}
-
     def __init__(cls, name, bases, clsdict):
         check_run_signature(cls.run)
         cls.__signature__ = build_task_signature(cls)
