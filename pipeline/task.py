@@ -60,43 +60,36 @@ class dependency(metaclass=MetaDependency):
 DependencyType = Annotated[TypeVar("T"), dependency]  # noqa: F821
 
 
-class MetaTask(type):
-    def __init__(cls, name, bases, clsdict):
-        check_run_signature(cls.run)
-        cls.__signature__ = build_task_signature(cls)
+class Task:
+    def __init_subclass__(cls):
+        """Check run and build task signatures.
 
-    @property
+        Run signature must not have keyword-only parameters.
+
+        Task signature:
+            Run method -> positional parameters
+            Dependencies -> keyword-only parameters
+        """
+
+        # Check run signature
+        run_params = signature(cls.run).parameters
+        kinds = (Parameter.KEYWORD_ONLY, Parameter.VAR_KEYWORD)
+        if any(p.kind in kinds for p in run_params.values()):
+            raise Exception("run parameters must be positional, not keyword-only.")
+
+        # Build task signature
+        task_params = run_params.copy()
+
+        for name in cls._dependencies():
+            if name not in task_params:
+                task_params[name] = Parameter(name, Parameter.KEYWORD_ONLY)
+
+        cls.__signature__ = Signature(task_params.values())
+
+    @classmethod
     def _dependencies(cls):
         return (d for d in dir(cls) if isinstance(getattr(cls, d), dependency))
 
-
-def check_run_signature(method):
-    """Run signature must not have keyword-only parameters."""
-    parameters = signature(method).parameters
-    kinds = (Parameter.KEYWORD_ONLY, Parameter.VAR_KEYWORD)
-    if any(p.kind in kinds for p in parameters.values()):
-        raise Exception("run parameters must be positional, not be keyword-only.")
-
-
-def build_task_signature(instance):
-    """Build task signature.
-
-    Run method -> positional parameters
-    Class attributes and dependencies -> keyword-only parameters
-    """
-    parameters = {}
-
-    for name, param in signature(instance.run).parameters.items():
-        parameters[name] = param
-
-    for name in instance._dependencies:
-        if name not in parameters:
-            parameters[name] = Parameter(name, Parameter.KEYWORD_ONLY)
-
-    return Signature(parameters.values())
-
-
-class Task(metaclass=MetaTask):
     @staticmethod
     def run():
         """Compute the result.
