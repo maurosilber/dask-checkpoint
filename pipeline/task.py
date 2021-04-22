@@ -13,18 +13,17 @@ from typing_extensions import Annotated
 
 
 def _optimize(dsk, keys):
+    """Replace Task instances with Task.run function."""
+
     dsk = ensure_dict(dsk)
     dsk, _ = cull(dsk, keys)
 
-    # TODO: Copy cull implementation here.
-    new_dsk = {}
     for k, v in dsk.items():
-        if isinstance(v[0], Task):
-            new_dsk[k] = (v[0].run, *v[1:])
-        else:
-            new_dsk[k] = v
+        task = v[0]
+        if isinstance(task, Task):
+            dsk[k] = (task.run, *v[1:])
 
-    return new_dsk
+    return dsk
 
 
 dask.config.set(delayed_optimize=_optimize)
