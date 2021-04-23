@@ -1,8 +1,8 @@
+from dataclasses import dataclass
 from inspect import Parameter
 
-from pytest import raises
-
 from pipeline import Task, dependency
+from pytest import raises
 
 
 def test_no_parameters():
@@ -170,3 +170,13 @@ def test_not_run_dependency_parameter():
     # Dependency is not positional
     with raises(TypeError):
         assert MyTask(1, 1)
+
+
+def test_dataclass_decorator():
+    @dataclass
+    class MyTask(Task):
+        @staticmethod
+        def run(x):
+            return x
+
+    assert MyTask(42).compute() == 42

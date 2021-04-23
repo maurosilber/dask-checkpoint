@@ -205,7 +205,9 @@ class Task(Save):
             setattr(self, name, value)
 
         if _delayed:
-            return dask.delayed(self)(*self._run_args, dask_key_name=self.key)
+            return dask.delayed(self, traverse=False)(
+                *self._run_args, dask_key_name=self.key
+            )
         else:
             # Return instance. Needed for Task serialization.
             return self
