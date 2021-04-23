@@ -12,17 +12,21 @@ from dask.utils import ensure_dict
 from typing_extensions import Annotated
 
 
-def _optimize(dsk, keys):
-    """Replace Task instances with Task.run function."""
-
-    dsk = ensure_dict(dsk)
+def _optimize_no_storage(dsk, keys):
     dsk, _ = cull(dsk, keys)
-
     for k, v in dsk.items():
         task = v[0]
         if isinstance(task, Task):
             dsk[k] = (task.run, *v[1:])
+    return dsk
 
+
+def _optimize(dsk, keys):
+    """Replace Task instances with Task.run function,
+    and remove unnecesary tasks not required to calculate keys.
+    """
+    dsk = ensure_dict(dsk)
+    dsk = _optimize_no_storage(dsk, keys)
     return dsk
 
 
