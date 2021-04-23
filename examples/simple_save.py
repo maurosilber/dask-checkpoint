@@ -1,11 +1,11 @@
 import numpy as np
-from pipeline import Load, Save, Task, dependency
+from pipeline import Task, dependency
+from pipeline.serializer import NumpyNPY
+from pipeline.storage import FSStorage
 
 
 class Image(Task):
     """Load image from path."""
-
-    path: str
 
     @staticmethod
     def run(path) -> np.ndarray:
@@ -13,8 +13,8 @@ class Image(Task):
         return np.array([1, 1, 2, 3, 5])  # We didn't really load anything
 
 
-class Background(Task):
-    image: np.ndarray
+class Background(Task, save=True):
+    serializers = (NumpyNPY,)
 
     @staticmethod
     def run(image) -> float:
@@ -23,8 +23,6 @@ class Background(Task):
 
 
 class CorrectedImage(Task):
-    image: np.ndarray
-
     @staticmethod
     def run(image, background) -> np.ndarray:
         print("Correcting image.")
@@ -42,12 +40,15 @@ if __name__ == "__main__":
 
     print()
 
-    with Save():  # Saves Background in DictTarget
+    # Dict-based storage
+    ds = FSStorage("", protocol="memory")
+
+    with ds:  # Saves Background
         CorrectedImage(image=image).compute()
 
     print()
 
-    with Load():  # Loads Background from DictTarget
+    with ds:  # Loads Background
         CorrectedImage(image=image).compute()
 
     print()
