@@ -31,6 +31,19 @@ class NumpyNPY(Serializer):
             return np.load(buf)
 
 
+class NumpyNPZ(Serializer):
+    @staticmethod
+    def dumps(x):
+        with io.BytesIO() as buf:
+            np.savez(buf, **x)
+            return buf.getvalue()
+
+    @staticmethod
+    def loads(x):
+        with io.BytesIO(x) as buf:
+            return dict(np.load(buf))
+
+
 class JSON(Serializer):
     dumps = staticmethod(json.dumps)
     loads = staticmethod(json.loads)
