@@ -1,7 +1,6 @@
 import abc
 import pathlib
 from contextvars import ContextVar
-from typing import Union
 
 import fsspec
 
@@ -31,9 +30,11 @@ class Storage(abc.ABC):
 class FSStorage(Storage):
     """Filesystem storage provided by fsspec."""
 
-    def __init__(self, path: Union[str, pathlib.Path] = "", protocol: str = "file"):
-        self.fs: fsspec.AbstractFileSystem = fsspec.filesystem(protocol)
-        self.base_path = pathlib.Path(path)
+    def __init__(self, uri: str, **options):
+        file = fsspec.open(uri, **options)
+        self.fs: fsspec.AbstractFileSystem = file.fs
+        self.base_path = pathlib.Path(file.path)
+        self.options = options
 
     def path(self, key):
         return str(self.base_path / key)
@@ -42,7 +43,7 @@ class FSStorage(Storage):
         return self.fs.exists(self.path(key))
 
     def read(self, key: str):
-        return self.fs.open(self.path(key), mode="rb")
+        return fsspec.core.OpenFile(self.fs, self.path(key), mode="rb")
 
     def write(self, key: str):
-        return self.fs.open(self.path(key), mode="wb")
+        return fsspec.core.OpenFile(self.fs, self.path(key), mode="wb")

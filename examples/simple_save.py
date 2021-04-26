@@ -41,7 +41,7 @@ if __name__ == "__main__":
     print()
 
     # Dict-based storage
-    ds = FSStorage("", protocol="memory")
+    ds = FSStorage("memory://")
 
     with ds:  # Saves Background
         CorrectedImage(image=image).compute()
