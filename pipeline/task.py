@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from functools import cached_property, reduce
+from functools import cached_property
 from inspect import Parameter, Signature, signature
 from types import FunctionType
 from typing import TypeVar
@@ -36,7 +36,6 @@ def _optimize_with_storage(dsk, keys, storage):
     """
     dsk, _ = cull(dsk, keys)
 
-    save_tasks = {}
     for k, v in dsk.items():
         task = v[0]
 
@@ -48,20 +47,17 @@ def _optimize_with_storage(dsk, keys, storage):
             continue
 
         if storage.exists(task.key):
-            load_task = (task._load, storage.read(task.key))
-            dsk[k] = task._loads(load_task)
+            dsk[k] = (task._build_load_func(), storage.read(task.key))
         else:
-            dsk[k] = (task.run, *v[1:])  # Run task
-            save_tasks[f"{k}-save"] = (
-                task._dump,
+            # TODO: What if the scheduler runs the task more than once?
+            dsk[k] = (
+                task._build_dump_func(),
                 storage.write(task.key),
-                task._dumps(k),
+                (task.run, *v[1:]),
             )
 
     # Remove unnecesary dependencies replaced by loads
     dsk, _ = cull(dsk, keys)
-    # Add saving tasks to dsk after cull
-    dsk.update(save_tasks)
     return dsk
 
 
@@ -112,10 +108,6 @@ class dependency(metaclass=MetaDependency):
 DependencyType = Annotated[TypeVar("T"), dependency]  # noqa: F821
 
 
-def _dask_compose(x, y):
-    return (y, x)
-
-
 class Save:
     serializers: tuple[Serializer, ...] = ()
 
@@ -128,26 +120,35 @@ class Save:
         return x
 
     @classmethod
-    def _dumps(cls, x):
-        """Returns dask composition of serializing functions."""
-        dumps = (cls.dumps, *(s.dumps for s in cls.serializers))
-        return reduce(_dask_compose, dumps, x)
+    def _build_dump_func(cls):
+        serializers = (cls.dumps, *(s.dumps for s in cls.serializers))
+
+        def _dump(stream, result):
+            out = result.copy()
+            for func in serializers:
+                out = func(out)
+
+            with stream as s:
+                s.write(out)
+
+            return result
+
+        return _dump
 
     @classmethod
-    def _loads(cls, x):
-        """Returns dask composition of serializing functions."""
-        loads = (cls.loads, *(s.loads for s in cls.serializers))
-        return reduce(_dask_compose, loads[::-1], x)  # Reversed order
+    def _build_load_func(cls):
+        serializers = (cls.loads, *(s.loads for s in cls.serializers))
 
-    @staticmethod
-    def _dump(stream, result):
-        with stream as s:
-            s.write(result)
+        def _load(stream):
+            with stream as s:
+                result = s.read()
 
-    @staticmethod
-    def _load(stream):
-        with stream as s:
-            return s.read()
+            for func in serializers[::-1]:
+                result = func(result)
+
+            return result
+
+        return _load
 
 
 class Task(Save):
