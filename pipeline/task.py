@@ -124,7 +124,7 @@ class Save:
         serializers = (cls.dumps, *(s.dumps for s in cls.serializers))
 
         def _dump(stream, result):
-            out = result.copy()
+            out = result
             for func in serializers:
                 out = func(out)
 
