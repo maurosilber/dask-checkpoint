@@ -1,49 +1,94 @@
-import abc
-import pathlib
-from contextvars import ContextVar
+from __future__ import annotations
 
+from contextlib import contextmanager
+
+import dask
+import dask.optimization
 import fsspec
+from dask.utils import apply
 
-storage_ctx = ContextVar("storage_ctx")
-
-
-class Storage(abc.ABC):
-    @abc.abstractmethod
-    def exists(self, key: str) -> bool:
-        return NotImplementedError
-
-    @abc.abstractmethod
-    def read(self, key: str):
-        return NotImplementedError
-
-    @abc.abstractmethod
-    def write(self, key: str):
-        return NotImplementedError
-
-    def __enter__(self):
-        self.token = storage_ctx.set(self)
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        storage_ctx.reset(self.token)
+from .task import Task
 
 
-class FSStorage(Storage):
-    """Filesystem storage provided by fsspec."""
+class Storage:
+    """Saves and loads task results to the given fsspec.FSMap instance.
 
-    def __init__(self, uri: str, **options):
-        file = fsspec.open(uri, **options)
-        self.fs: fsspec.AbstractFileSystem = file.fs
-        self.base_path = pathlib.Path(file.path)
-        self.options = options
+    Calling an storage instance returns a single-use context manager,
+    inside which dask graphs are injected with load and save functions.
 
-    def path(self, key):
-        return str(self.base_path / key)
+    >>> storage = Storage("memory://")  # a dict-backed in-memory storage.
 
-    def exists(self, key: str) -> bool:
-        return self.fs.exists(self.path(key))
+    >>> with storage(save=True):
+            task.compute()  # task is loaded (if it exists) or saved
 
-    def read(self, key: str):
-        return fsspec.core.OpenFile(self.fs, self.path(key), mode="rb")
+    >>> with storage(save=False):
+            task.compute()  # task is only loaded (if it exists)
 
-    def write(self, key: str):
-        return fsspec.core.OpenFile(self.fs, self.path(key), mode="wb")
+    Parameters
+    ----------
+    fs : fsspec.FSMap | str
+        If it is a str, it constructs a FSMap with fsspec.get_mapper.
+    """
+
+    def __init__(self, fs: fsspec.FSMap | str, **get_mapper_kwargs):
+        if isinstance(fs, str):
+            fs = fsspec.get_mapper(fs, **get_mapper_kwargs)
+        self.fs = fs
+
+    def __call__(self, *, save: bool):
+        return set_optimize_func(self.get_optimizer(save=save))
+
+    def load(self, task: Task):
+        value = self.fs[task.dask_key]
+        return task.decode(value)
+
+    def save(self, task: Task, value):
+        self.fs[task.dask_key] = task.encode(value)
+        return value
+
+    def get_optimizer(self, save: bool):
+        def optimize(dsk, keys):
+            """Traverses the dask graph checking for Task instances,
+            and replaces them with load instructions if they already exists in storage,
+            or injects save instructions otherwise (if save=True).
+            """
+
+            new_dsk = dsk.to_dict()
+
+            for key, value in new_dsk.items():
+                # value is a tuple representing the computation:
+                #   value = (func, *params)
+                #
+                # If func is a task (with save=True), check if it is already in storage
+                # If:
+                # - True: replace it with a load instruction, discarding "value"
+                # - False: inject a save instruction, which saves "value"
+
+                task = value[0]
+                if task is apply:
+                    # Called with kwargs
+                    task = value[1]
+
+                if not isinstance(task, Task) or not task.save:
+                    continue
+
+                if key in self.fs:
+                    new_dsk[key] = (self.load, task)
+                elif save:
+                    new_dsk[key] = (self.save, task, value)
+
+            new_dsk, _ = dask.optimization.cull(new_dsk, keys)
+            return new_dsk
+
+        return optimize
+
+
+@contextmanager
+def set_optimize_func(optimize):
+    """A single-use context-manager that preprends
+    and then removes a dask optimizer function.
+    """
+    optimizations = dask.config.get("optimizations", ())
+    dask.config.set(optimizations=(optimize, *optimizations))
+    yield
+    dask.config.set(optimizations=optimizations)
