@@ -1,0 +1,8 @@
+name: pipeline
+channels:
+  - conda-forge
+dependencies:
+  - cloudpickle
+  - dask
+  - fsspec
+  - zstandard

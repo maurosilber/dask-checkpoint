@@ -1,4 +1,6 @@
-.*/
+.*
 
 *egg-info*
 __pycache__/
+
+dask-worker-space/
