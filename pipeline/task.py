@@ -2,17 +2,17 @@ from __future__ import annotations
 
 from functools import cached_property
 from inspect import Parameter, Signature, signature
-from types import FunctionType
-from typing import TypeVar
+from typing import Generic, TypeVar
 
 import dask
 from dask.base import tokenize
 from dask.optimization import cull
 from dask.utils import ensure_dict
-from typing_extensions import Annotated
 
 from .serializer import Serializer
 from .storage import Storage, storage_ctx
+
+T = TypeVar("T")
 
 
 def _optimize_no_storage(dsk, keys):
@@ -78,34 +78,17 @@ def _optimize(dsk, keys):
 dask.config.set(delayed_optimize=_optimize)
 
 
-class MetaDependency(type):
-    def __repr__(self):
-        return "dependency"
+class dependency(Generic[T]):
+    """Dependency non-data descriptor."""
 
+    def __init__(self, func):
+        self.func = func
 
-class dependency(metaclass=MetaDependency):
-    """Dependency descriptor."""
+    def __get__(self, obj, cls):
+        if obj is None:
+            return self.func
 
-    def __init__(self, dep=None):
-        self.dep = dep
-        self.is_func = isinstance(dep, FunctionType)
-        if self.is_func:
-            self.__doc__ = dep.__doc__
-
-    def __get__(self, task, objtype=None):
-        if task is None:
-            return self
-
-        if self.is_func:
-            return self.dep(task)
-        else:
-            return self.dep
-
-    def __class_getitem__(cls, item):
-        return DependencyType[item]
-
-
-DependencyType = Annotated[TypeVar("T"), dependency]  # noqa: F821
+        return self.func(obj)
 
 
 class Save:
