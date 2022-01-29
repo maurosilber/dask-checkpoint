@@ -12,3 +12,12 @@ repos:
     rev: 3.9.2
     hooks:
     - id: flake8
+
+-   repo: https://github.com/mwouts/jupytext
+    rev: v1.13.6
+    hooks:
+    - id: jupytext
+      args: [--pipe, black]
+      files: \.ipynb$
+      additional_dependencies:
+        - black==22.1.0
