@@ -3,8 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import cached_property
 from inspect import BoundArguments, Parameter, signature
-from typing import Generic, Protocol, TypeVar, runtime_checkable
+from types import ModuleType
+from typing import Generic, Optional, Protocol, TypeVar, runtime_checkable
 
+import cloudpickle
+import zstandard
 from dask import delayed
 from dask.base import tokenize
 
@@ -52,6 +55,11 @@ class dependency(Generic[T]):
 
 
 class Task(Generic[T]):
+    save: bool = False
+    serializer: Optional[Serializer] = cloudpickle
+    compressor: Optional[Compressor] = zstandard
+    encrypter: Optional[Encrypter] = None
+
     __bound: BoundArguments
 
     @staticmethod
@@ -65,26 +73,89 @@ class Task(Generic[T]):
         """
         raise NotImplementedError
 
+    @classmethod
+    def encode(cls, value: T) -> bytes:
+        """Encode the result of Task.run to bytes.
+
+        Default encoder: dumps -> compress -> encrypt,
+        """
+        if cls.serializer is not None:
+            value = cls.serializer.dumps(value)
+        if cls.compressor is not None:
+            value = cls.compressor.compress(value)
+        if cls.encrypter is not None:
+            value = cls.encrypter.encrypt(value)
+        return value
+
+    @classmethod
+    def decode(cls, value: bytes) -> T:
+        """Decode the result of Task.run from bytes.
+
+        Default decoder: decrypt -> decompress -> loads,
+        """
+        if cls.encrypter is not None:
+            value = cls.encrypter.decrypt(value)
+        if cls.compressor is not None:
+            value = cls.compressor.decompress(value)
+        if cls.serializer is not None:
+            value = cls.serializer.loads(value)
+        return value
+
     @cached_property
     def dask_key(self) -> str:
         """Unique name for a given Task.
 
         It is the name used for the dask graph and to store the result.
 
-        By default: {Task name}/{hash from run parameters}
+        By default: {Task name}/{hash from run parameters}.{suffixes from encoders}
         """
         name = self.__class__.__qualname__
+        hash = self._hash()
+        suffix = self._extension()
+        return f"{name}/{hash}.{suffix}"
 
+    def _hash(self) -> str:
         args, kwargs = self._run_params
-        hash = tokenize(*args, **kwargs)
+        return tokenize(*args, **kwargs)
 
-        return f"{name}/{hash}"
+    def _extension(self) -> str:
+        suffixes = []
+        for cls in (self.serializer, self.compressor, self.encrypter):
+            if cls is None:
+                continue
+            elif isinstance(cls, (type, ModuleType)):
+                name = cls.__name__
+            else:
+                name = cls.__class__.__name__
+
+            name = name.split(".")[-1]
+            suffixes.append(name)
+        return ".".join(suffixes)
 
     def __init_subclass__(cls):
         """Validates that a Task is well-specified."""
 
         # Convert to dataclass.
         dataclass(cls)
+
+        # Validate {save, serializer, compressor, encrypter}
+        if not isinstance(cls.save, bool):
+            raise TypeError(f"{cls}.save must be a boolean: True or False.")
+
+        if cls.serializer is not None and not isinstance(cls.serializer, Serializer):
+            raise TypeError(
+                f"{cls}.serializer must implement dumps and loads or be None."
+            )
+
+        if cls.compressor is not None and not isinstance(cls.compressor, Compressor):
+            raise TypeError(
+                f"{cls}.compressor must implement compress and decompress or be None."
+            )
+
+        if cls.encrypter is not None and not isinstance(cls.encrypter, Encrypter):
+            raise TypeError(
+                f"{cls}.encrypter must implement encrypt and decrypt or be None."
+            )
 
         # Validate run method:
         #   - convert to a staticmethod
