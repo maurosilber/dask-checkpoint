@@ -3,12 +3,39 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import cached_property
 from inspect import BoundArguments, Parameter, signature
-from typing import Generic, TypeVar
+from typing import Generic, Protocol, TypeVar, runtime_checkable
 
 from dask import delayed
 from dask.base import tokenize
 
 T = TypeVar("T")
+
+
+@runtime_checkable
+class Serializer(Protocol[T]):
+    def dumps(x: T) -> bytes:
+        ...
+
+    def loads(x: bytes) -> T:
+        ...
+
+
+@runtime_checkable
+class Compressor(Protocol):
+    def compress(x: bytes) -> bytes:
+        ...
+
+    def decompress(x: bytes) -> bytes:
+        ...
+
+
+@runtime_checkable
+class Encrypter(Protocol):
+    def encrypt(x: bytes) -> bytes:
+        ...
+
+    def decrypt(x: bytes) -> bytes:
+        ...
 
 
 class dependency(Generic[T]):
