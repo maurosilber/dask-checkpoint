@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from functools import cached_property
 from inspect import BoundArguments, Parameter, signature
 from types import ModuleType
-from typing import Generic, Optional, Protocol, TypeVar, runtime_checkable
+from typing import Generic, Optional, ParamSpec, Protocol, TypeVar, runtime_checkable
 
 import cloudpickle
 import zstandard
@@ -12,6 +12,7 @@ from dask import delayed
 from dask.base import tokenize
 
 T = TypeVar("T")
+P = ParamSpec("P")
 
 
 @runtime_checkable
@@ -227,3 +228,43 @@ class Task(Generic[T]):
                 kwargs.update(value)  # value is a mapping
 
         return args, kwargs
+
+
+def task(
+    func: callable[P, T] = None,
+    /,
+    *,
+    name: str = None,
+    save: bool = False,
+    serializer: Optional[Serializer] = cloudpickle,
+    compressor: Optional[Compressor] = zstandard,
+    encrypter: Optional[Encrypter] = None,
+) -> callable[P, T]:
+    """Build a task from a callable. Can be used as a decorator."""
+    if func is None:
+        # We are being called as a decorator.
+        kwargs = locals()
+        kwargs.pop("func")
+
+        def task_partial(func):
+            return task(func, **kwargs)
+
+        return task_partial
+
+    # Get annotations and default parameters from function signature
+    annotations, defaults = {}, {}
+    for k, v in signature(func).parameters.items():
+        annotations[k] = v.annotation
+        if v.default is not Parameter.empty:
+            defaults[k] = v.default
+
+    namespace = {
+        "run": func,
+        "__annotations__": annotations,
+        "save": save,
+        "serializer": serializer,
+        "compressor": compressor,
+        "encrypter": encrypter,
+        **defaults,
+    }
+    return type(name or func.__name__, (Task,), namespace)
