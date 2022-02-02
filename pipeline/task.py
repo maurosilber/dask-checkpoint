@@ -171,7 +171,7 @@ class Task(Generic[T]):
         if len(missing_parameters) > 0:
             raise NameError(
                 f"{cls}.run method has parameters with are neither an"
-                f"annotation or a dependecy: {missing_parameters}"
+                f"annotation or a dependency: {missing_parameters}"
             )
 
     def __new__(cls, *args, _delayed=True, **kwargs):
@@ -183,7 +183,7 @@ class Task(Generic[T]):
         # Create instance
         self = super().__new__(cls)
 
-        # Initialize instance attributes. Dependencies are overriden as they are
+        # Initialize instance attributes. Dependencies are overridden as they are
         # non-data descriptors.
         self.__bound = signature(self.__init__).bind_partial(*args, **kwargs)
         for name, value in self.__bound.arguments.items():
