@@ -6,3 +6,6 @@ dependencies:
   - dask
   - fsspec
   - zstandard
+  - pre-commit
+  pip:
+    - serialize
