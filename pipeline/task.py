@@ -232,7 +232,7 @@ class Task(Generic[T]):
 
 def task(
     func: callable[P, T] = None,
-    /,
+    # /,  TODO: uncomment when we stop supporting Python < 3.8
     *,
     name: str = None,
     save: bool = False,
