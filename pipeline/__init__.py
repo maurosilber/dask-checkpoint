@@ -1,5 +1,6 @@
 import dask
 
+from . import _compatibility  # noqa: F401
 from .storage import Storage
 from .task import Task, dataclass, dependency, task
 
