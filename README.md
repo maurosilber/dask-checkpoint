@@ -28,6 +28,17 @@ To set up a development environment in a new conda environment, run the followin
 git clone https://github.com/maurosilber/pipeline
 cd pipeline
 conda env create -f environment.yml
-pip install -e .[dev]
 pre-commit install
+```
+
+Run tests locally with `tox`:
+
+```
+tox
+```
+
+or, if you have `mamba` installed:
+
+```
+CONDA_EXE=mamba tox
 ```
