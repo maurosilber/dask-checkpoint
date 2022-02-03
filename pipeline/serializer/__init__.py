@@ -68,3 +68,12 @@ class serializer(metaclass=meta):
     # Requires numpy
     npy = LazyLoader(".numpy", extra_requires="numpy")
     npz = LazyLoader(".numpy", extra_requires="numpy")
+
+    # Requires to install serializer github.com/hgrecco/serializer
+    bson = LazyLoader("serialize", extra_requires="bson")
+    dill = LazyLoader("serialize", extra_requires="dill")
+    json = LazyLoader("serialize", extra_requires="simplejson")
+    msgpack = LazyLoader("serialize", extra_requires="msgpack-python")
+    phpserialize = LazyLoader("serialize", extra_requires="phpserialize")
+    serpent = LazyLoader("serialize", extra_requires="serpent")
+    yaml = LazyLoader("serialize", extra_requires="pyyaml")
