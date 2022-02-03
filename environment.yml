@@ -7,5 +7,6 @@ dependencies:
   - fsspec
   - zstandard
   - pre-commit
-  pip:
+  - pip
+  - pip:
     - serialize
