@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from importlib import import_module
 
+from ..task import Serializer
+
 
 class LazyLoader:
     name: str
@@ -15,8 +17,6 @@ class LazyLoader:
             - from module import name
             - from .module import name  (if module starts with ".")
             - import name  (if module is None)
-
-        name is
 
         Parameters
         ----------
@@ -77,3 +77,11 @@ class serializer(metaclass=meta):
     phpserialize = LazyLoader("serialize", extra_requires="phpserialize")
     serpent = LazyLoader("serialize", extra_requires="serpent")
     yaml = LazyLoader("serialize", extra_requires="pyyaml")
+
+
+def __getattr__(name: str) -> Serializer:
+    """To support imports from serializer class:
+
+    from pipeline.serializer import <name>
+    """
+    return getattr(serializer, name)
