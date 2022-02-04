@@ -55,24 +55,10 @@ class dependency(Generic[T]):
         return self.func(obj)
 
 
-class Task(Generic[T]):
-    save: bool = False
+class Encoder(Generic[T]):
     serializer: Optional[Serializer] = cloudpickle
     compressor: Optional[Compressor] = zstandard
     encrypter: Optional[Encrypter] = None
-
-    __bound: BoundArguments
-
-    @staticmethod
-    def run() -> T:
-        """Compute the result.
-
-        Parameter names in run signature must be at least one of:
-            - class annotation
-            - class attribute
-            - @dependency-decorated method
-        """
-        raise NotImplementedError
 
     @classmethod
     def encode(cls, value: T) -> bytes:
@@ -101,6 +87,42 @@ class Task(Generic[T]):
         if cls.serializer is not None:
             value = cls.serializer.loads(value)
         return value
+
+    def __init_subclass__(cls) -> None:
+        super().__init_subclass__()
+
+        # Validate serializer, compressor, encrypter
+        if cls.serializer is not None and not isinstance(cls.serializer, Serializer):
+            raise TypeError(
+                f"{cls}.serializer must implement dumps and loads or be None."
+            )
+
+        if cls.compressor is not None and not isinstance(cls.compressor, Compressor):
+            raise TypeError(
+                f"{cls}.compressor must implement compress and decompress or be None."
+            )
+
+        if cls.encrypter is not None and not isinstance(cls.encrypter, Encrypter):
+            raise TypeError(
+                f"{cls}.encrypter must implement encrypt and decrypt or be None."
+            )
+
+
+class Task(Encoder[T]):
+    save: bool = False
+
+    __bound: BoundArguments
+
+    @staticmethod
+    def run() -> T:
+        """Compute the result.
+
+        Parameter names in run signature must be at least one of:
+            - class annotation
+            - class attribute
+            - @dependency-decorated method
+        """
+        raise NotImplementedError
 
     @cached_property
     def dask_key(self) -> str:
@@ -135,28 +157,14 @@ class Task(Generic[T]):
 
     def __init_subclass__(cls):
         """Validates that a Task is well-specified."""
+        super().__init_subclass__()
 
         # Convert to dataclass.
         dataclass(cls)
 
-        # Validate {save, serializer, compressor, encrypter}
+        # Validate save
         if not isinstance(cls.save, bool):
             raise TypeError(f"{cls}.save must be a boolean: True or False.")
-
-        if cls.serializer is not None and not isinstance(cls.serializer, Serializer):
-            raise TypeError(
-                f"{cls}.serializer must implement dumps and loads or be None."
-            )
-
-        if cls.compressor is not None and not isinstance(cls.compressor, Compressor):
-            raise TypeError(
-                f"{cls}.compressor must implement compress and decompress or be None."
-            )
-
-        if cls.encrypter is not None and not isinstance(cls.encrypter, Encrypter):
-            raise TypeError(
-                f"{cls}.encrypter must implement encrypt and decrypt or be None."
-            )
 
         # Validate run method:
         #   - convert to a staticmethod
