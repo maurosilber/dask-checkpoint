@@ -69,6 +69,10 @@ class serializer(metaclass=meta):
     npy = LazyLoader(".numpy", extra_requires="numpy")
     npz = LazyLoader(".numpy", extra_requires="numpy")
 
+    # Requires pandas
+    feather = LazyLoader(".pandas", extra_requires="pyarrow")
+    parquet = LazyLoader(".pandas", extra_requires="pyarrow")
+
     # Requires to install serializer github.com/hgrecco/serializer
     bson = LazyLoader("serialize", extra_requires="bson")
     dill = LazyLoader("serialize", extra_requires="dill")
