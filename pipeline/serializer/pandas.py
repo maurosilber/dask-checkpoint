@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import partial
 from io import BytesIO
 
 import pandas as pd
@@ -24,10 +25,10 @@ class pandas:
 
 
 class feather(pandas):
-    dump = pd.DataFrame.to_feather
+    dump = partial(pd.DataFrame.to_feather, compression=None)
     load = pd.read_feather
 
 
 class parquet(pandas):
-    dump = pd.DataFrame.to_parquet
+    dump = partial(pd.DataFrame.to_parquet, compression=None)
     load = pd.read_parquet
