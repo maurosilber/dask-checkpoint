@@ -6,6 +6,16 @@ import cloudpickle
 import zstandard
 
 T = TypeVar("T")
+E = TypeVar("E")
+
+
+@runtime_checkable
+class Encoder(Protocol[T, E]):
+    def encode(x: T) -> E:
+        ...
+
+    def decode(x: E) -> T:
+        ...
 
 
 @runtime_checkable
