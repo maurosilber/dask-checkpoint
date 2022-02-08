@@ -11,7 +11,7 @@ import zstandard
 from dask import delayed
 from dask.base import tokenize
 
-from .encoder import Compressor, DefaultEncoder, Encrypter, Serializer
+from .encoder import Compressor, DefaultEncoder, Encoder, Encrypter, Serializer
 
 T = TypeVar("T")
 P = ParamSpec("P")
@@ -166,6 +166,7 @@ def task(
     *,
     name: str = None,
     save: bool = False,
+    encoders: Optional[tuple[Encoder]] = None,
     serializer: Optional[Serializer] = cloudpickle,
     compressor: Optional[Compressor] = zstandard,
     encrypter: Optional[Encrypter] = None,
@@ -192,6 +193,7 @@ def task(
         "run": func,
         "__annotations__": annotations,
         "save": save,
+        "encoders": encoders,
         "serializer": serializer,
         "compressor": compressor,
         "encrypter": encrypter,
