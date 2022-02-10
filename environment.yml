@@ -6,7 +6,9 @@ dependencies:
   - dask
   - fsspec
   - zstandard
+  - hypothesis
   - pre-commit
+  - pytest
   - tox
   - pip
   - pip:
