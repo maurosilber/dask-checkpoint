@@ -35,8 +35,15 @@ class Storage:
             fs = fsspec.get_mapper(fs, **get_mapper_kwargs)
         self.fs = fs
 
+    @contextmanager
     def __call__(self, *, save: bool):
-        return set_optimize_func(self.get_optimizer(save=save))
+        """A single-use context-manager that preprends
+        and then removes a dask optimizer function.
+        """
+        optimize = self.get_optimizer(save=save)
+        optimizations = dask.config.get("optimizations", ())
+        with dask.config.set(optimizations=(optimize, *optimizations)):
+            yield
 
     def load(self, task: Task):
         value = self.fs[task.dask_key]
@@ -81,14 +88,3 @@ class Storage:
             return new_dsk
 
         return optimize
-
-
-@contextmanager
-def set_optimize_func(optimize):
-    """A single-use context-manager that preprends
-    and then removes a dask optimizer function.
-    """
-    optimizations = dask.config.get("optimizations", ())
-    dask.config.set(optimizations=(optimize, *optimizations))
-    yield
-    dask.config.set(optimizations=optimizations)
