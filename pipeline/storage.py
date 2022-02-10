@@ -41,11 +41,11 @@ class Storage:
     @contextmanager
     def __call__(self, *, save: bool):
         """A single-use context-manager that preprends
-        and then removes a dask optimizer function.
+        and then removes dask optimizers function.
         """
-        optimize = self.get_optimizer(save=save)
+        optimizers = self.get_optimizers(save=save)
         optimizations = dask.config.get("optimizations", ())
-        with dask.config.set(optimizations=(optimize, *optimizations)):
+        with dask.config.set(optimizations=(*optimizers, *optimizations)):
             yield
 
     def load(self, task: Task):
@@ -56,7 +56,7 @@ class Storage:
         self.fs[task.dask_key] = task.encode(value)
         return value
 
-    def get_optimizer(self, save: bool):
+    def get_optimizers(self, save: bool) -> tuple[callable]:
         def yield_tasks(dsk, keys) -> Iterator[tuple[str, tuple, Task]]:
             """Traverses the dask graph yielding Task instances with Task.save=True."""
 
@@ -70,26 +70,33 @@ class Storage:
                 if isinstance(func, Task) and func.save:
                     yield key, value, func
 
-        def optimize(dsk, keys):
-            """Traverses the dask graph checking for Task instances,
-            and replaces them with load instructions if they already exists in storage,
-            or injects save instructions otherwise (if save=True).
-            """
-
-            dsk = dsk.to_dict()
+        def optimize_load(dsk, keys):
+            """Inject load instructions for tasks already in storage."""
+            dsk = dict(dsk)
 
             # iterate over task where task.save is True
-            for key, value, task in yield_tasks(dsk, keys):
+            for key, _, task in yield_tasks(dsk, keys):
                 # If task is already in storage, replace with a load instruction
                 if key in self.fs:
                     dsk[key] = (self.load, task)
-                elif save:
-                    # If not, inject a save instruction, which saves "value",
-                    # which is a tuple representing the computation:
-                    #   value = (task, *params)
-                    dsk[key] = (self.save, task, value)
 
             dsk, _ = dask.optimization.cull(dsk, keys)
             return dsk
 
-        return optimize
+        def optimize_save(dsk, keys):
+            """Inject save instructions for tasks."""
+            dsk = dict(dsk)
+
+            # iterate over task where task.save is True
+            for key, value, task in yield_tasks(dsk, keys):
+                # Inject a save instruction, which saves "value",
+                # which is a tuple representing the computation:
+                #   value = (task, *params)
+                dsk[key] = (self.save, task, value)
+
+            return dsk
+
+        if save:
+            return (optimize_load, optimize_save)
+        else:
+            return (optimize_load,)
