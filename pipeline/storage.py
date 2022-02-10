@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from typing import MutableMapping
+from typing import Iterator, MutableMapping
 
 import dask
 import dask.optimization
@@ -57,37 +57,39 @@ class Storage:
         return value
 
     def get_optimizer(self, save: bool):
+        def yield_tasks(dsk, keys) -> Iterator[tuple[str, tuple, Task]]:
+            """Traverses the dask graph yielding Task instances with Task.save=True."""
+
+            for key, value in dsk.items():
+                func = value[0]
+
+                if func is apply:
+                    # Called with kwargs
+                    func = value[1]
+
+                if isinstance(func, Task) and func.save:
+                    yield key, value, func
+
         def optimize(dsk, keys):
             """Traverses the dask graph checking for Task instances,
             and replaces them with load instructions if they already exists in storage,
             or injects save instructions otherwise (if save=True).
             """
 
-            new_dsk = dsk.to_dict()
+            dsk = dsk.to_dict()
 
-            for key, value in new_dsk.items():
-                # value is a tuple representing the computation:
-                #   value = (func, *params)
-                #
-                # If func is a task (with save=True), check if it is already in storage
-                # If:
-                # - True: replace it with a load instruction, discarding "value"
-                # - False: inject a save instruction, which saves "value"
-
-                task = value[0]
-                if task is apply:
-                    # Called with kwargs
-                    task = value[1]
-
-                if not isinstance(task, Task) or not task.save:
-                    continue
-
+            # iterate over task where task.save is True
+            for key, value, task in yield_tasks(dsk, keys):
+                # If task is already in storage, replace with a load instruction
                 if key in self.fs:
-                    new_dsk[key] = (self.load, task)
+                    dsk[key] = (self.load, task)
                 elif save:
-                    new_dsk[key] = (self.save, task, value)
+                    # If not, inject a save instruction, which saves "value",
+                    # which is a tuple representing the computation:
+                    #   value = (task, *params)
+                    dsk[key] = (self.save, task, value)
 
-            new_dsk, _ = dask.optimization.cull(new_dsk, keys)
-            return new_dsk
+            dsk, _ = dask.optimization.cull(dsk, keys)
+            return dsk
 
         return optimize
