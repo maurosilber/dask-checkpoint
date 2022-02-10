@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+from typing import MutableMapping
 
 import dask
 import dask.optimization
@@ -26,11 +27,13 @@ class Storage:
 
     Parameters
     ----------
-    fs : fsspec.FSMap | str
+    fs : MutableMapping[str, bytes] | str
         If it is a str, it constructs a FSMap with fsspec.get_mapper.
     """
 
-    def __init__(self, fs: fsspec.FSMap | str, **get_mapper_kwargs):
+    fs: MutableMapping[str, bytes]
+
+    def __init__(self, fs: MutableMapping[str, bytes] | str, **get_mapper_kwargs):
         if isinstance(fs, str):
             fs = fsspec.get_mapper(fs, **get_mapper_kwargs)
         self.fs = fs
