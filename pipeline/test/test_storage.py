@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Optional
 
 import hypothesis.strategies as st
+import pytest
 from hypothesis import given
 from pytest import raises
 
@@ -69,7 +70,8 @@ def test_single_storage(inputs: list[tuple[bool, bool]]):
             assert result == counter.counter
 
 
-def test_load_from_combined_storage():
+@pytest.mark.parametrize("save", [False, True])
+def test_load_from_combined_storage(save: bool):
     """There are two ways of combining storages, which have different
     key search order:
 
@@ -111,20 +113,26 @@ def test_load_from_combined_storage():
 
     # We can't compute it either with only one of the storages
     with raises(RuntimeError):
-        with storage_1(save=False):
+        with storage_1(save=save):
             full_task.compute()
 
     with raises(RuntimeError):
-        with storage_2(save=False):
+        with storage_2(save=save):
             full_task.compute()
 
     # We can "compute" it with both storages simultaneously.
     # Chained:
     chained_storage = Storage.from_chain(storage_1, storage_2)
-    with chained_storage(save=False):
+    with chained_storage(save=save):
         assert full_task.compute() == b"ab"
 
     # Nested:
-    with storage_1(save=False):
-        with storage_2(save=False):
+    with storage_1(save=save):
+        with storage_2(save=save):
             assert full_task.compute() == b"ab"
+
+    # Nested=False:
+    with raises(RuntimeError):
+        with storage_1(save=save):
+            with storage_2(save=save, nested=False):
+                assert full_task.compute() == b"ab"
