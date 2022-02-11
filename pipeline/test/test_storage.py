@@ -4,6 +4,7 @@ from typing import Optional
 
 import hypothesis.strategies as st
 from hypothesis import given
+from pytest import raises
 
 from .. import Storage, task
 
@@ -66,3 +67,64 @@ def test_single_storage(inputs: list[tuple[bool, bool]]):
             assert result == SAVED
         else:
             assert result == counter.counter
+
+
+def test_load_from_combined_storage():
+    """There are two ways of combining storages, which have different
+    key search order:
+
+    1. Chained storages:
+
+    for key in keys:
+        for storage in storages:
+            if key in storage: ...
+
+    2. Nested context managers:
+
+    for storage in storages:
+        for key in keys:
+            if key in storage: ...
+
+    We want to test that both ways produce the same result.
+    """
+
+    @task(save=True, compressor=None, serializer=None)
+    def uncomputable_task(x) -> bytes:
+        """A task which cannot be computed, but it could be loaded."""
+        raise RuntimeError
+
+    # The task cannot be computed, but for inputs x=1 and x=2,
+    # it is already saved in storage_1 and storage_2, respectively.
+    task_1 = uncomputable_task(1)
+    storage_1 = Storage({task_1.key: b"a"})
+
+    task_2 = uncomputable_task(2)
+    storage_2 = Storage({task_2.key: b"b"})
+
+    # The full task will concatenate both strings.
+    full_task = task_1 + task_2
+
+    # We can't compute the full task,
+    # as we can't compute any of its dependencies.
+    with raises(RuntimeError):
+        full_task.compute()
+
+    # We can't compute it either with only one of the storages
+    with raises(RuntimeError):
+        with storage_1(save=False):
+            full_task.compute()
+
+    with raises(RuntimeError):
+        with storage_2(save=False):
+            full_task.compute()
+
+    # We can "compute" it with both storages simultaneously.
+    # Chained:
+    chained_storage = Storage.from_chain(storage_1, storage_2)
+    with chained_storage(save=False):
+        assert full_task.compute() == b"ab"
+
+    # Nested:
+    with storage_1(save=False):
+        with storage_2(save=False):
+            assert full_task.compute() == b"ab"

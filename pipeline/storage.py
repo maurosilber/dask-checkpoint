@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import ChainMap
 from contextlib import contextmanager
 from typing import Iterator, MutableMapping
 
@@ -37,6 +38,14 @@ class Storage:
         if isinstance(fs, str):
             fs = fsspec.get_mapper(fs, **get_mapper_kwargs)
         self.fs = fs
+
+    @classmethod
+    def from_chain(cls, *storages: Storage) -> Storage:
+        """Create a Storage by chaining multiple Storages with a collections.ChainMap.
+
+        It will only save to the first Storage.
+        """
+        return Storage(ChainMap(*[s.fs for s in storages]))
 
     @contextmanager
     def __call__(self, *, save: bool):
