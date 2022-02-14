@@ -5,6 +5,6 @@ from .serializer import serializer
 from .storage import Storage
 from .task import Task, dataclass, dependency, task
 
-dask.config.set(delayed_pure=True)
+dask.config.set({"delayed_pure": True, "tokenize.ensure-deterministic": True})
 
 __all__ = ["dataclass", "dependency", "Storage", "serializer", "Task", "task"]
