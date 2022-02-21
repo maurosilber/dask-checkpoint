@@ -63,7 +63,7 @@ class Task(DefaultEncoder[T]):
         return f"{name}/{hash}.{suffix}"
 
     def _hash(self) -> str:
-        args, kwargs = self._run_params
+        args, kwargs = self._run_arguments
         return tokenize(*args, **kwargs)
 
     def _extension(self) -> str:
@@ -137,7 +137,7 @@ class Task(DefaultEncoder[T]):
             # Return the task instance as a dask.delayed function,
             # called with the task.run parameters.
             func = cls._delayed_run
-            args, kwargs = self._run_params
+            args, kwargs = self._run_arguments
             return func(literal(self), args, kwargs, dask_key_name=self.dask_key)
         else:
             # Return instance. Needed for Task serialization.
@@ -149,7 +149,7 @@ class Task(DefaultEncoder[T]):
         return self.__bound.args, {**self.__bound.kwargs, "_delayed": False}
 
     @cached_property
-    def _run_params(self) -> tuple[tuple, dict]:
+    def _run_arguments(self) -> tuple[tuple, dict]:
         # Get run function parameters from its signature, and
         # collect them from instance or class attributes/dependencies,
         args, kwargs = [], {}
