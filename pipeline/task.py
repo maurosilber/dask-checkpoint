@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import cached_property
 from inspect import BoundArguments, Parameter, signature
-from types import ModuleType
+from types import MethodType, ModuleType
 from typing import Generic, Optional, ParamSpec, TypeVar
 
 import cloudpickle
@@ -85,6 +85,7 @@ class Task(DefaultEncoder[T]):
 
         # Convert to dataclass.
         dataclass(cls)
+        cls.__signature__ = signature(MethodType(cls.__init__, cls))
 
         # Validate save
         if not isinstance(cls.save, bool):
@@ -126,7 +127,7 @@ class Task(DefaultEncoder[T]):
 
         # Initialize instance attributes. Dependencies are overridden as they are
         # non-data descriptors.
-        self.__bound = signature(self.__init__).bind_partial(*args, **kwargs)
+        self.__bound = cls.__signature__.bind_partial(*args, **kwargs)
         for name, value in self.__bound.arguments.items():
             setattr(self, name, value)
 
