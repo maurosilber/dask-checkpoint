@@ -8,7 +8,7 @@ from typing import Iterator, MutableMapping
 import dask
 import dask.optimization
 import fsspec
-from dask.utils import apply
+from dask.core import literal
 
 from .task import Task
 
@@ -113,14 +113,18 @@ class Storage:
         """Traverses the dask graph yielding Task instances with Task.save=True."""
 
         for key, value in dsk.items():
-            func = value[0]
-
-            if func is apply:
-                # Called with kwargs
+            try:
                 func = value[1]
+            except KeyError:
+                continue
 
-            if isinstance(func, Task) and func.save:
-                yield key, value, func
+            if isinstance(func, literal):
+                task = func.data
+            else:
+                continue
+
+            if isinstance(task, Task) and task.save:
+                yield key, value, task
 
     def optimize_load(self, dsk, keys):
         """Inject load instructions for tasks already in storage."""

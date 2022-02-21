@@ -10,6 +10,7 @@ import cloudpickle
 import zstandard
 from dask import delayed
 from dask.base import tokenize
+from dask.core import literal
 
 from .encoder import Compressor, DefaultEncoder, Encoder, Encrypter, Serializer
 
@@ -34,6 +35,7 @@ class Task(DefaultEncoder[T]):
     save: bool = False
 
     __bound: BoundArguments
+    _delayed_run: callable
 
     @staticmethod
     def run() -> T:
@@ -92,10 +94,11 @@ class Task(DefaultEncoder[T]):
         #   - convert to a staticmethod
         #   - check that all run parameters either exist as dependencies
         #     or are in __annotations__.
-        cls.run = staticmethod(cls.run)
+        run = cls.run
+        cls.run = staticmethod(run)
         missing_parameters = {
             k
-            for k in signature(cls.run).parameters
+            for k in signature(run).parameters
             if k not in cls.__annotations__ and not hasattr(cls, k)
         }
         if len(missing_parameters) > 0:
@@ -103,6 +106,14 @@ class Task(DefaultEncoder[T]):
                 f"{cls}.run method has parameters with are neither an"
                 f"annotation or a dependency: {missing_parameters}"
             )
+
+        @delayed(pure=True, traverse=False)
+        def _delayed_run(self, args, kwargs):
+            # It needs to take a self parameter, since we need
+            # the task instance to use its encode and decode methods.
+            return run(*args, **kwargs)
+
+        cls._delayed_run = _delayed_run
 
     def __new__(cls, *args, _delayed=True, **kwargs):
         # If _delayed=True, we return a task instance wrapped in dask.delayed.
@@ -122,9 +133,9 @@ class Task(DefaultEncoder[T]):
         if _delayed:
             # Return the task instance as a dask.delayed function,
             # called with the task.run parameters.
-            func = delayed(self, pure=True, traverse=False)
+            func = cls._delayed_run
             args, kwargs = self._run_params
-            return func(*args, **kwargs, dask_key_name=self.dask_key)
+            return func(literal(self), args, kwargs, dask_key_name=self.dask_key)
         else:
             # Return instance. Needed for Task serialization.
             return self
@@ -133,12 +144,6 @@ class Task(DefaultEncoder[T]):
         # Enables task serialization. We need to build a Task instance,
         # not a dask.delayed function, hence the _delayed=False
         return self.__bound.args, {**self.__bound.kwargs, "_delayed": False}
-
-    def __call__(self, *args, **kwargs):
-        # Dask considers callables as tasks in its graph.
-        # Hence, we can pass the task itself as the callable,
-        # and later have access to dask_key, encode and decode.
-        return self.run(*args, **kwargs)
 
     @cached_property
     def _run_params(self) -> tuple[tuple, dict]:
