@@ -36,6 +36,7 @@ class Task(DefaultEncoder[T]):
 
     __bound: BoundArguments
     _delayed_run: callable
+    _run_parameters: dict[str, Parameter]
 
     @staticmethod
     def run() -> T:
@@ -96,10 +97,11 @@ class Task(DefaultEncoder[T]):
         #   - check that all run parameters either exist as dependencies
         #     or are in __annotations__.
         run = cls.run
+        cls._run_parameters = signature(run).parameters
         cls.run = staticmethod(run)
         missing_parameters = {
             k
-            for k in signature(run).parameters
+            for k in cls._run_parameters
             if k not in cls.__annotations__ and not hasattr(cls, k)
         }
         if len(missing_parameters) > 0:
@@ -151,7 +153,7 @@ class Task(DefaultEncoder[T]):
         # Get run function parameters from its signature, and
         # collect them from instance or class attributes/dependencies,
         args, kwargs = [], {}
-        for name, param in signature(self.run).parameters.items():
+        for name, param in self._run_parameters.items():
             value = getattr(self, name)
 
             if param.kind <= Parameter.POSITIONAL_OR_KEYWORD:
