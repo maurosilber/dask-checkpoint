@@ -62,6 +62,9 @@ class Task(DefaultEncoder[T]):
         suffix = self._extension()
         return f"{name}/{hash}.{suffix}"
 
+    def __dask_tokenize__(self):
+        return self.dask_key
+
     def _hash(self) -> str:
         args, kwargs = self._run_arguments
         return tokenize(*args, **kwargs)
