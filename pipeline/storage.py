@@ -36,6 +36,11 @@ class Storage:
     fs: MutableMapping[str, bytes]
 
     def __init__(self, fs: MutableMapping[str, bytes] | str, **get_mapper_kwargs):
+        try:
+            fs = fs.__fspath__()
+        except AttributeError:
+            pass
+
         if isinstance(fs, str):
             fs = fsspec.get_mapper(fs, **get_mapper_kwargs)
         self.fs = fs
