@@ -9,7 +9,7 @@ import dask
 import dask.optimization
 import fsspec
 from dask.core import literal
-from dask.delayed import apply
+from dask.delayed import apply, Delayed
 
 from .task import Task
 
@@ -113,6 +113,12 @@ class Storage:
     def save(self, key: literal[str], task: Task, value):
         self.fs[key.data] = task.encode(value)
         return value
+
+    def __contains__(self, task: Task) -> bool:
+        if isinstance(task, Delayed):
+            return task.key in self
+
+        raise NotImplementedError
 
     def optimize_load(self, dsk, keys):
         """Inject load instructions for tasks already in storage."""
