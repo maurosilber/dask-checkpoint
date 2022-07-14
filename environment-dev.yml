@@ -13,3 +13,4 @@ dependencies:
   - pip
   - pip:
     - serialize
+    # - lazy_import
