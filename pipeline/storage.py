@@ -9,6 +9,7 @@ import dask
 import dask.optimization
 import fsspec
 from dask.core import literal
+from dask.delayed import apply
 
 from .task import Task
 
@@ -51,10 +52,10 @@ class Storage:
 
         It will only save to the first Storage.
         """
-        return Storage(ChainMap(*[s.fs for s in storages]))
+        return cls(ChainMap(*(s.fs for s in storages)))
 
     @contextmanager
-    def __call__(self, *, save: bool, nested: bool = True):
+    def __call__(self, *, save: bool = True, nested: bool = True):
         """A single-use context-manager that to set and then restore
         dask optimizers function.
 
@@ -105,41 +106,23 @@ class Storage:
         with dask.config.set(optimizations=optimizations):
             yield
 
-    def load(self, task: Task):
-        value = self.fs[task.dask_key]
+    def load(self, key: literal[str], task: Task):
+        value = self.fs[key.data]
         return task.decode(value)
 
-    def save(self, task: Task, value):
-        self.fs[task.dask_key] = task.encode(value)
+    def save(self, key: literal[str], task: Task, value):
+        self.fs[key.data] = task.encode(value)
         return value
-
-    @staticmethod
-    def _yield_tasks(dsk, keys) -> Iterator[tuple[str, tuple, Task]]:
-        """Traverses the dask graph yielding Task instances with Task.save=True."""
-
-        for key, value in dsk.items():
-            try:
-                func = value[1]
-            except KeyError:
-                continue
-
-            if isinstance(func, literal):
-                task = func.data
-            else:
-                continue
-
-            if isinstance(task, Task) and task.save:
-                yield key, value, task
 
     def optimize_load(self, dsk, keys):
         """Inject load instructions for tasks already in storage."""
         dsk = dict(dsk)
 
         # iterate over task where task.save is True
-        for key, _, task in self._yield_tasks(dsk, keys):
+        for key, _, task in _yield_tasks(dsk, keys):
             # If task is already in storage, replace with a load instruction
             if key in self.fs:
-                dsk[key] = (self.load, task)
+                dsk[key] = (self.load, literal(key), task)
 
         dsk, _ = dask.optimization.cull(dsk, keys)
         return dsk
@@ -149,10 +132,23 @@ class Storage:
         dsk = dict(dsk)
 
         # iterate over task where task.save is True
-        for key, value, task in self._yield_tasks(dsk, keys):
+        for key, value, task in _yield_tasks(dsk, keys):
             # Inject a save instruction, which saves "value",
             # which is a tuple representing the computation:
             #   value = (task, *params)
-            dsk[key] = (self.save, task, value)
+            dsk[key] = (self.save, literal(key), task, value)
 
         return dsk
+
+
+def _yield_tasks(dsk, keys) -> Iterator[tuple[str, tuple, Task]]:
+    """Traverses the dask graph yielding Task instances with Task.save=True."""
+
+    for key, value in dsk.items():
+        task = value[0]
+        if task is apply:
+            task = value[1]
+
+        if isinstance(task, Task):
+            if task.save:
+                yield key, value, task

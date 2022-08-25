@@ -1,16 +1,35 @@
 # Pipeline
 
-Pipeline is a Python package to build complex analysis pipelines with [dask](https://dask.org).
+Pipeline is a Python package
+that adds a customizable caching capabilities to [dask](https://dask.org).
+It builds on top of `dask.delayed`,
+adding load and save instructions
+to the dask graph.
 
-Inspired on spotify's [Luigi](https://github.com/spotify/luigi), Pipeline builds on top of `dask.delayed`, adding save and load instructions to the dask graph.
+```python
+from pipeline import Storage, task
 
-In contrast to Luigi, Pipeline allows to experiment with the analysis pipeline more interactively, thanks to dask. For instance, within a Jupyter notebook.
+storage = Storage("directory")
 
-At the same time, it can also accelerate experimenting with the analysis by storing expensive intermediate computations to disk, in contrast to plain dask.
+
+@task(save=True)
+def add_one(x):
+    return x + 1
+
+
+x0 = add_one(1).compute()  # computed
+with storage():
+    x1 = add_one(1).compute()  # computed and saved to storage
+    x2 = add_one(1).compute()  # loaded from storage
+x3 = add_one(1).compute()  # recomputed, not loaded from storage
+
+assert x0 == x1 == x2 == x3
+```
 
 ## Installation
 
-Currently, you have to install pipeline from GitHub.
+Currently,
+you have to install pipeline from GitHub.
 
 ```
 pip install git+https://github.com/maurosilber/pipeline
@@ -22,7 +41,8 @@ Check out the [tutorial](examples/tutorial.ipynb) to see Pipeline in action.
 
 ## Development
 
-To set up a development environment in a new conda environment, run the following commands:
+To set up a development environment in a new conda environment,
+run the following commands:
 
 ```
 git clone https://github.com/maurosilber/pipeline
