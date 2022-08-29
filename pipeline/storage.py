@@ -15,36 +15,29 @@ from .task import Task
 
 
 class Storage:
-    """Saves and loads task results to the given fsspec.FSMap instance.
+    """Saves and loads task results to a MutableMapping.
 
     Calling an storage instance returns a single-use context manager,
     inside which dask graphs are injected with load and save functions.
 
-    >>> storage = Storage("memory://")  # a dict-backed in-memory storage.
+    >>> storage = Storage({})  # a dict-backed storage.
 
     >>> with storage(save=True):
             task.compute()  # task is loaded (if it exists) or saved
 
     >>> with storage(save=False):
             task.compute()  # task is only loaded (if it exists)
-
-    Parameters
-    ----------
-    data : MutableMapping[str, bytes] | str
-        If it is a str, it constructs a FSMap with fsspec.get_mapper.
     """
 
     data: MutableMapping[str, bytes]
 
-    def __init__(self, fs: MutableMapping[str, bytes] | str, **get_mapper_kwargs):
-        try:
-            fs = fs.__fspath__()
-        except AttributeError:
-            pass
+    def __init__(self, data: MutableMapping[str, bytes]):
+        self.data = data
 
-        if isinstance(fs, str):
-            fs = fsspec.get_mapper(fs, **get_mapper_kwargs)
-        self.data = fs
+    @classmethod
+    def from_fsspec(cls, path: str, **kwargs):
+        data = fsspec.get_mapper(path, **kwargs)
+        return cls(data)
 
     @classmethod
     def from_chain(cls, *storages: Storage) -> Storage:
