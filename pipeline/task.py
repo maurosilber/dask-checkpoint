@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Optional, ParamSpec, TypeVar
+from typing import Generic, Optional, ParamSpec, TypeVar
 
 import cloudpickle
 import zstandard
@@ -15,8 +16,8 @@ P = ParamSpec("P")
 
 
 @dataclass
-class task:
-    func: callable[P, T]
+class task(Generic[P, T]):
+    func: Callable[P, T]
     name: str = None
     save: bool = False
     hasher: callable = default_hasher
@@ -46,7 +47,7 @@ class task:
         h = self.hasher(*args, **kwargs)
         return f"{self.name}/{h}"
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> T:
         key = self.key(*args, **kwargs)
         return self.delayed_func(*args, **kwargs, dask_key_name=key)
 
