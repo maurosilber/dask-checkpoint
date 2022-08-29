@@ -9,18 +9,21 @@ import zstandard
 from dask import delayed
 
 from .encoder import Compressor, Encoder, Encrypter, Serializer
-from .hash import default_hasher
+from .hasher import function_name, tokenize
 
 T = TypeVar("T")
 P = ParamSpec("P")
+
+FunctionHasher: Callable[[Callable], str]
+ArgumentHasher: Callable[[tuple, dict], str]
 
 
 @dataclass
 class task(Generic[P, T]):
     func: Callable[P, T]
-    name: str = None
     save: bool = False
-    hasher: callable = default_hasher
+    name: str | FunctionHasher = function_name
+    hasher: ArgumentHasher = tokenize
     encoders: tuple[Encoder] = ()
     serializer: Optional[Serializer] = cloudpickle
     compressor: Optional[Compressor] = zstandard
@@ -38,13 +41,12 @@ class task(Generic[P, T]):
         return super().__new__(cls)
 
     def __post_init__(self):
-        if self.name is None:
-            self.name = self.func.__name__
-
+        if not isinstance(self.name, str):
+            self.name = self.name(self.func)
         self.delayed_func = delayed(Task(self), name=self.name, pure=True)
 
     def key(self, *args, **kwargs):
-        h = self.hasher(*args, **kwargs)
+        h = self.hasher(args, kwargs)
         return f"{self.name}/{h}"
 
     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> T:
