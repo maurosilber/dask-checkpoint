@@ -47,7 +47,7 @@ run the following commands:
 ```
 git clone https://github.com/maurosilber/pipeline
 cd pipeline
-conda env create -f environment.yml
+conda env create -f environment-dev.yml
 pre-commit install
 ```
 
