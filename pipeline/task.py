@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
-from typing import Generic, ParamSpec, TypeVar
+from typing import Generic, TypeVar
+
+try:
+    from typing import ParamSpec
+except ImportError:
+    from typing_extensions import ParamSpec
 
 from dask import delayed
 
@@ -16,14 +20,28 @@ FunctionHasher: Callable[[Callable], str]
 ArgumentHasher: Callable[[tuple, dict], str]
 
 
-@dataclass
 class task(Generic[P, T]):
-    func: Callable[P, T]
-    save: bool = False
-    name: str | FunctionHasher = function_name
-    hasher: ArgumentHasher = tokenize
-    encoder: Encoder[T, bytes] = DefaultEncoder()
     """Build a task from a callable. Can be used as a decorator."""
+
+    def __init__(
+        self,
+        func: Callable[P, T] = None,
+        *,
+        save: bool = False,
+        name: str | FunctionHasher = function_name,
+        hasher: ArgumentHasher = tokenize,
+        encoder: Encoder[T, bytes] = DefaultEncoder(),
+    ):
+        if not isinstance(name, str):
+            name = name(func)
+
+        self.func = func
+        self.save = save
+        self.name = name
+        self.hasher = hasher
+        self.encoder = encoder
+
+        self.delayed_func = delayed(Task(self), name=self.name, pure=True)
 
     def __new__(cls, func=None, **kwargs):
         if func is None:
@@ -35,11 +53,6 @@ class task(Generic[P, T]):
 
         return super().__new__(cls)
 
-    def __post_init__(self):
-        if not isinstance(self.name, str):
-            self.name = self.name(self.func)
-        self.delayed_func = delayed(Task(self), name=self.name, pure=True)
-
     def key(self, *args, **kwargs):
         h = self.hasher(args, kwargs)
         return f"{self.name}{h}"
@@ -47,6 +60,12 @@ class task(Generic[P, T]):
     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> T:
         key = self.key(*args, **kwargs)
         return self.delayed_func(*args, **kwargs, dask_key_name=key)
+
+    def __repr__(self):
+        if self.save:
+            return f"task({self.func}, save={self.save}, encoder={self.encoder})"
+        else:
+            return f"task({self.func}, save={self.save})"
 
 
 class Task:

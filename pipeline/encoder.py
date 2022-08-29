@@ -1,7 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Protocol, TypeVar, runtime_checkable
+from typing import TypeVar
+
+try:
+    from typing import Protocol, runtime_checkable
+except ImportError:
+    from typing_extensions import Protocol, runtime_checkable
 
 import cloudpickle
 import zstandard
@@ -46,12 +50,26 @@ class Encrypter(Protocol):
         ...
 
 
-@dataclass(slots=True, frozen=True, kw_only=True)
 class DefaultEncoder(Encoder[T, bytes]):
-    encoders: tuple[Encoder] = ()
-    serializer: Serializer | None = cloudpickle
-    compressor: Compressor | None = zstandard
-    encrypter: Encrypter | None = None
+    __slots__ = (
+        "encoders",
+        "serializer",
+        "compressor",
+        "encrypter",
+    )
+
+    def __init__(
+        self,
+        *,
+        encoders: tuple[Encoder] = (),
+        serializer: Serializer | None = cloudpickle,
+        compressor: Compressor | None = zstandard,
+        encrypter: Encrypter | None = None,
+    ):
+        self.encoders = encoders
+        self.serializer = serializer
+        self.compressor = compressor
+        self.encrypter = encrypter
 
     def encode(self, value: T) -> bytes:
         """Encode the result of Task.run to bytes.
@@ -85,3 +103,21 @@ class DefaultEncoder(Encoder[T, bytes]):
             for encoder in self.encoders:
                 value = encoder.decode(value)
         return value
+
+    def __repr__(self):
+        encoders = list(map(_get_name, self.encoders))
+        if self.serializer is not None:
+            encoders.append(f"serializer={_get_name(self.serializer)}")
+        if self.compressor is not None:
+            encoders.append(f"compressor={_get_name(self.compressor)}")
+        if self.encrypter is not None:
+            encoders.append(f"encrypter={_get_name(self.encrypter)}")
+        encoders = ", ".join(encoders)
+        return f"Encode({encoders})"
+
+
+def _get_name(x: type | object):
+    try:
+        return x.__name__
+    except AttributeError:
+        return x.__class__.__name__
