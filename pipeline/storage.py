@@ -9,7 +9,7 @@ import dask
 import dask.optimization
 import fsspec
 from dask.core import literal
-from dask.delayed import apply, Delayed
+from dask.delayed import Delayed, apply
 
 from .task import Task
 
@@ -30,11 +30,11 @@ class Storage:
 
     Parameters
     ----------
-    fs : MutableMapping[str, bytes] | str
+    data : MutableMapping[str, bytes] | str
         If it is a str, it constructs a FSMap with fsspec.get_mapper.
     """
 
-    fs: MutableMapping[str, bytes]
+    data: MutableMapping[str, bytes]
 
     def __init__(self, fs: MutableMapping[str, bytes] | str, **get_mapper_kwargs):
         try:
@@ -44,7 +44,7 @@ class Storage:
 
         if isinstance(fs, str):
             fs = fsspec.get_mapper(fs, **get_mapper_kwargs)
-        self.fs = fs
+        self.data = fs
 
     @classmethod
     def from_chain(cls, *storages: Storage) -> Storage:
@@ -52,7 +52,7 @@ class Storage:
 
         It will only save to the first Storage.
         """
-        return cls(ChainMap(*(s.fs for s in storages)))
+        return cls(ChainMap(*(s.data for s in storages)))
 
     @contextmanager
     def __call__(self, *, save: bool = True, nested: bool = True):
@@ -107,11 +107,11 @@ class Storage:
             yield
 
     def load(self, key: literal[str], task: Task):
-        value = self.fs[key.data]
+        value = self.data[key.data]
         return task.decode(value)
 
     def save(self, key: literal[str], task: Task, value):
-        self.fs[key.data] = task.encode(value)
+        self.data[key.data] = task.encode(value)
         return value
 
     def __contains__(self, task: Task) -> bool:
@@ -127,7 +127,7 @@ class Storage:
         # iterate over task where task.save is True
         for key, _, task in _yield_tasks(dsk, keys):
             # If task is already in storage, replace with a load instruction
-            if key in self.fs:
+            if key in self.data:
                 dsk[key] = (self.load, literal(key), task)
 
         dsk, _ = dask.optimization.cull(dsk, keys)

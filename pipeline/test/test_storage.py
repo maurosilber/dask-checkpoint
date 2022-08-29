@@ -59,9 +59,9 @@ def test_single_storage(inputs: list[tuple[bool, bool]]):
         assert counter.counter == RUNS
 
         if SAVED is None:
-            assert len(storage.fs) == 0
+            assert len(storage.data) == 0
         else:
-            assert len(storage.fs) == 1
+            assert len(storage.data) == 1
 
         if SAVED is not None and task_save:
             # The result should be loaded
