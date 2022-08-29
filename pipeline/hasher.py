@@ -4,7 +4,8 @@ from dask.base import tokenize as dask_tokenize
 
 
 def function_name(func):
-    return func.__name__
+    """Function name with a trailing slash."""
+    return f"{func.__name__}/"
 
 
 def tokenize(args, kwargs):

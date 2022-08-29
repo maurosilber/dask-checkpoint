@@ -47,7 +47,7 @@ class task(Generic[P, T]):
 
     def key(self, *args, **kwargs):
         h = self.hasher(args, kwargs)
-        return f"{self.name}/{h}"
+        return f"{self.name}{h}"
 
     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> T:
         key = self.key(*args, **kwargs)
