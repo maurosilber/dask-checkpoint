@@ -7,7 +7,7 @@ import pytest
 from hypothesis import given
 from pytest import raises
 
-from .. import Storage, task
+from .. import DefaultEncoder, Storage, task
 
 
 @given(inputs=st.lists(st.tuples(st.booleans(), st.booleans())))
@@ -90,7 +90,7 @@ def test_load_from_combined_storage(save: bool):
     We want to test that both ways produce the same result.
     """
 
-    @task(save=True, compressor=None, serializer=None)
+    @task(save=True, encoder=DefaultEncoder(serializer=None, compressor=None))
     def uncomputable_task(x) -> bytes:
         """A task which cannot be computed, but it could be loaded."""
         raise RuntimeError

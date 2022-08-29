@@ -2,13 +2,11 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Generic, Optional, ParamSpec, TypeVar
+from typing import Generic, ParamSpec, TypeVar
 
-import cloudpickle
-import zstandard
 from dask import delayed
 
-from .encoder import Compressor, Encoder, Encrypter, Serializer
+from .encoder import DefaultEncoder, Encoder
 from .hasher import function_name, tokenize
 
 T = TypeVar("T")
@@ -24,10 +22,7 @@ class task(Generic[P, T]):
     save: bool = False
     name: str | FunctionHasher = function_name
     hasher: ArgumentHasher = tokenize
-    encoders: tuple[Encoder] = ()
-    serializer: Optional[Serializer] = cloudpickle
-    compressor: Optional[Compressor] = zstandard
-    encrypter: Optional[Encrypter] = None
+    encoder: Encoder[T, bytes] = DefaultEncoder()
     """Build a task from a callable. Can be used as a decorator."""
 
     def __new__(cls, func=None, **kwargs):
@@ -65,32 +60,10 @@ class Task:
         return self.task.save
 
     def encode(self, value):
-        for encoder in self.task.encoders:
-            value = encoder.encode(value)
-        serializer = self.task.serializer
-        if serializer is not None:
-            value = serializer.dumps(value)
-        compressor = self.task.compressor
-        if compressor is not None:
-            value = compressor.compress(value)
-        encrypter = self.task.encrypter
-        if encrypter is not None:
-            value = encrypter.encrypt(value)
-        return value
+        return self.task.encoder.encode(value)
 
     def decode(self, value):
-        encrypter = self.task.encrypter
-        if encrypter is not None:
-            value = encrypter.decrypt(value)
-        compressor = self.task.compressor
-        if compressor is not None:
-            value = compressor.decompress(value)
-        serializer = self.task.serializer
-        if serializer is not None:
-            value = serializer.loads(value)
-        for encoder in self.task.encoders:
-            value = encoder.decode(value)
-        return value
+        return self.task.encoder.decode(value)
 
     def __call__(self, *args, **kwds):
         return self.task.func(*args, **kwds)
