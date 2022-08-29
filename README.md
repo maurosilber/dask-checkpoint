@@ -9,7 +9,7 @@ to the dask graph.
 ```python
 from pipeline import Storage, task
 
-storage = Storage("directory")
+storage = Storage.from_fsspec("my_directory")
 
 
 @task(save=True)
