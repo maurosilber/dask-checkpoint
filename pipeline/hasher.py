@@ -20,3 +20,12 @@ def function_name(func):
 
 def tokenize(kwargs):
     return dask_tokenize(**kwargs)
+
+
+def exclude(*names: str, hasher: ArgumentHasher = tokenize):
+    def exclude_hasher(kwargs):
+        for name in names:
+            del kwargs[name]
+        return hasher(kwargs)
+
+    return exclude_hasher
