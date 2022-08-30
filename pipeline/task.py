@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from inspect import signature
 from typing import Generic, TypeVar
 
 try:
@@ -38,6 +39,7 @@ class task(Generic[P, T]):
         self.hasher = hasher
         self.encoder = encoder
 
+        self.__signature__ = signature(func)
         self.delayed_func = delayed(Task(self), name=self.name, pure=True)
 
     def __new__(cls, func=None, **kwargs):
@@ -50,12 +52,13 @@ class task(Generic[P, T]):
 
         return super().__new__(cls)
 
-    def key(self, *args, **kwargs):
-        h = self.hasher(args, kwargs)
+    def key(self, kwargs):
+        h = self.hasher(kwargs)
         return f"{self.name}{h}"
 
     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> T:
-        key = self.key(*args, **kwargs)
+        bound = self.__signature__.bind(*args, **kwargs)
+        key = self.key(bound.arguments)
         return self.delayed_func(*args, **kwargs, dask_key_name=key)
 
     def __repr__(self):

@@ -18,5 +18,5 @@ def function_name(func):
     return f"{func.__name__}/"
 
 
-def tokenize(args, kwargs):
-    return dask_tokenize(*args, **kwargs)
+def tokenize(kwargs):
+    return dask_tokenize(**kwargs)
