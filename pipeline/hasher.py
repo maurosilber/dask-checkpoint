@@ -1,6 +1,16 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+
+try:
+    from typing import TypeAlias
+except ImportError:
+    from typing_extensions import TypeAlias
+
 from dask.base import tokenize as dask_tokenize
+
+FunctionHasher: TypeAlias = Callable[[Callable], str]
+ArgumentHasher: TypeAlias = Callable[[dict], str]
 
 
 def function_name(func):

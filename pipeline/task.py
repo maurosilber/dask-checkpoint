@@ -11,13 +11,10 @@ except ImportError:
 from dask import delayed
 
 from .encoder import DefaultEncoder, Encoder
-from .hasher import function_name, tokenize
+from .hasher import ArgumentHasher, FunctionHasher, function_name, tokenize
 
 T = TypeVar("T")
 P = ParamSpec("P")
-
-FunctionHasher: Callable[[Callable], str]
-ArgumentHasher: Callable[[tuple, dict], str]
 
 
 class task(Generic[P, T]):
