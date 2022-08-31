@@ -1,7 +1,7 @@
 from pytest import raises
 
-from pipeline import task
-from pipeline.hasher import exclude
+from .. import task
+from ..hasher import exclude
 
 
 def test_positional_or_keyword():

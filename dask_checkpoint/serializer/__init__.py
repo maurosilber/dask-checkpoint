@@ -46,7 +46,7 @@ class LazyLoader:
             if self.module is None:
                 return import_module(self.name)
             else:
-                module = import_module(self.module, "pipeline.serializer")
+                module = import_module(self.module, "dask_checkpoint.serializer")
                 return getattr(module, self.name)
         except (AttributeError, ModuleNotFoundError):
             requirements = [self.module or self.name, *self.extra_requires]
@@ -86,6 +86,6 @@ class serializer(metaclass=meta):
 def __getattr__(name: str) -> Serializer:
     """To support imports from serializer class:
 
-    from pipeline.serializer import <name>
+    from dask_checkpoint.serializer import <name>
     """
     return getattr(serializer, name)
