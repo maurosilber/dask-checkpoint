@@ -28,11 +28,10 @@ assert x0 == x1 == x2 == x3
 
 ## Installation
 
-Currently,
-you have to install dask-checkpoint from GitHub.
+Dask-checkpoint can be installed from PyPI:
 
 ```
-pip install git+https://github.com/maurosilber/dask-checkpoint
+pip install dask-checkpoint
 ```
 
 ## Getting started
