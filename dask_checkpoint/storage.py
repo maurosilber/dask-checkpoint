@@ -20,13 +20,17 @@ class Storage:
     Calling an storage instance returns a single-use context manager,
     inside which dask graphs are injected with load and save functions.
 
+    >>> from dask_checkpoint import task, Storage
     >>> storage = Storage({})  # a dict-backed storage.
-
+    >>> @task
+    ... def func():
+    ...     return 42
     >>> with storage(save=True):
-            task.compute()  # task is loaded (if it exists) or saved
-
+    ...     func().compute()  # task is loaded (if it exists) or saved
+    42
     >>> with storage(save=False):
-            task.compute()  # task is only loaded (if it exists)
+    ...     func().compute()  # task is only loaded (if it exists)
+    42
     """
 
     data: MutableMapping[str, bytes]
