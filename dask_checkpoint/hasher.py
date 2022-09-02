@@ -1,12 +1,15 @@
 from __future__ import annotations
 
-from collections.abc import Callable
 from types import FunctionType
 
 try:
     from typing import TypeAlias
 except ImportError:
+    from typing import Callable
+
     from typing_extensions import TypeAlias
+else:
+    from collections.abc import Callable
 
 from dask.base import tokenize as dask_tokenize
 
