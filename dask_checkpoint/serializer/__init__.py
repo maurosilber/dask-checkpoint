@@ -7,10 +7,15 @@ from ..encoder import Serializer
 
 class LazyLoader:
     name: str
-    module: str
+    module: str | None
     extra_requires: list[str]
 
-    def __init__(self, module: str = None, *, extra_requires: str | list[str] = None):
+    def __init__(
+        self,
+        module: str | None = None,
+        *,
+        extra_requires: str | list[str] | None = None,
+    ):
         """Delayed loading of module or attribute of module.
 
         There are 3 variants:

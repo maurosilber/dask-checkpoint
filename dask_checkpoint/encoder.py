@@ -16,37 +16,37 @@ E = TypeVar("E")
 
 @runtime_checkable
 class Encoder(Protocol[T, E]):
-    def encode(x: T) -> E:
+    def encode(self, x: T, /) -> E:
         ...
 
-    def decode(x: E) -> T:
+    def decode(self, x: E, /) -> T:
         ...
 
 
 @runtime_checkable
 class Serializer(Protocol[T]):
-    def dumps(x: T) -> bytes:
+    def dumps(self, x: T, /) -> bytes:
         ...
 
-    def loads(x: bytes) -> T:
+    def loads(self, x: bytes, /) -> T:
         ...
 
 
 @runtime_checkable
 class Compressor(Protocol):
-    def compress(x: bytes) -> bytes:
+    def compress(self, x: bytes, /) -> bytes:
         ...
 
-    def decompress(x: bytes) -> bytes:
+    def decompress(self, x: bytes, /) -> bytes:
         ...
 
 
 @runtime_checkable
 class Encrypter(Protocol):
-    def encrypt(x: bytes) -> bytes:
+    def encrypt(self, x: bytes, /) -> bytes:
         ...
 
-    def decrypt(x: bytes) -> bytes:
+    def decrypt(self, x: bytes, /) -> bytes:
         ...
 
 
@@ -61,8 +61,8 @@ class DefaultEncoder(Encoder[T, bytes]):
     def __init__(
         self,
         *,
-        encoders: tuple[Encoder] = (),
-        serializer: Serializer | None = cloudpickle,
+        encoders: tuple[Encoder] | None = None,
+        serializer: Serializer[T] | None = cloudpickle,
         compressor: Compressor | None = zstandard,
         encrypter: Encrypter | None = None,
     ):
@@ -77,8 +77,9 @@ class DefaultEncoder(Encoder[T, bytes]):
         Default encoder:
             encode -> ... -> encode -> dumps -> compress -> encrypt
         """
-        for encoder in self.encoders:
-            value = encoder.encode(value)
+        if self.encoders is not None:
+            for encoder in self.encoders:
+                value = encoder.encode(value)
         if self.serializer is not None:
             value = self.serializer.dumps(value)
         if self.compressor is not None:

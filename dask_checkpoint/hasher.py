@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from types import FunctionType
-
 try:
     from typing import TypeAlias
 except ImportError:
@@ -17,7 +15,7 @@ FunctionHasher: TypeAlias = Callable[[Callable], str]
 ArgumentHasher: TypeAlias = Callable[[dict], str]
 
 
-def function_name(func: FunctionType) -> str:
+def function_name(func: Callable, /) -> str:
     """Function name with a trailing slash.
 
     >>> def func(x):
@@ -28,7 +26,7 @@ def function_name(func: FunctionType) -> str:
     return f"{func.__name__}/"
 
 
-def tokenize(kwargs: dict) -> str:
+def tokenize(kwargs: dict, /) -> str:
     return dask_tokenize(**kwargs)
 
 
@@ -51,7 +49,7 @@ def exclude(*names: str, hasher: ArgumentHasher = tokenize) -> ArgumentHasher:
     return exclude_hasher
 
 
-def function_hash(func: FunctionType) -> str:
+def function_hash(func: Callable, /) -> str:
     """Function name and a hash of its bytecode,
     with a trailing slash.
 

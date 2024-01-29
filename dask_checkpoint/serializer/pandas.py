@@ -11,7 +11,7 @@ class pandas:
     load: callable
 
     @classmethod
-    def dumps(cls, x: pd.DataFrame) -> bytes:
+    def dumps(cls, x: pd.DataFrame, /) -> bytes:
         if not isinstance(x, pd.DataFrame):
             raise TypeError("Input must be a pandas.DataFrame")
 
@@ -20,7 +20,7 @@ class pandas:
         return file.getvalue()
 
     @classmethod
-    def loads(cls, x: bytes) -> pd.DataFrame:
+    def loads(cls, x: bytes, /) -> pd.DataFrame:
         return cls.load(BytesIO(x))
 
 
